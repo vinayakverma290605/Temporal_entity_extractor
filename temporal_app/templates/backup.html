@@ -1,0 +1,56 @@
+We built a web application that extracts temporal entities — meaning dates, times, and durations — from multilingual text in English, Hindi, and Bengali.
+
+
+The system uses three layers. First, a pre-trained transformer model called DistilBERT which detects named entities like people and places. Second, a regex engine with 15+ patterns that catches date and time expressions like '29 June', '3 days ago', 'next Friday', or '10:30 AM'. Third, a keyword gazetteer — basically a dictionary — of day names and relative time words in all three languages.
+
+
+The frontend is a Django web app where you type any sentence and it shows you all detected entities, their type — DATE, TIME, DURATION, PER, LOC — and the model's confidence score. The goal was specifically to handle low-resource languages like Hindi and Bengali where existing NLP tools perform poorly
+
+
+It's a Named Entity Recognition (NER) system, specifically focused on temporal expressions. In academic terms this is called Temporal Information Extraction — a subfield of NLP.
+
+The three layers explained deeply
+Layer 1 — Transformer Model (DistilBERT)
+
+davlan/distilbert-base-multilingual-cased-ner-hrl is a distilled (smaller, faster) version of BERT
+Trained on 10 languages including Hindi
+"cased" means it treats "Delhi" and "delhi" differently — important for proper nouns
+It was originally trained for PER, LOC, ORG — not dates. So you're using it as a supporting layer, not the main one for temporal extraction
+Returns a confidence score (that 90% you saw) based on how strongly the model's weights fire for that token
+
+Layer 2 — Regex Engine
+
+Regex = Regular Expressions, a pattern matching system
+Your patterns cover absolute dates (29 June 2023), relative dates (3 days ago, next Friday), ISO format (2023-06-29), quarters (Q3 2024), time (10:30 AM), durations (for two weeks)
+This is deterministic — always 100% confidence, no learning involved
+Fastest part of your pipeline
+
+Layer 3 — Gazetteer
+
+A gazetteer is just a structured vocabulary list used in NLP
+Yours covers day names and relative time words in English, Hindi, Bengali
+This is what makes your project "low-resource language" focused — Hindi and Bengali don't have great NLP tools, so a handcrafted gazetteer fills the gap
+
+
+Your Django structure
+
+nlp_engine.py — the brain, runs all three layers
+views.py — receives the text from the website, calls nlp_engine.py, sends back JSON
+models.py — database models (currently mostly unused, could store query history)
+index.html — the frontend, sends a POST request to /analyze/ and displays results
+urls.py — maps /analyze/ to your view function
+settings.py — Django config, database, installed apps
+
+
+What happens when you type text and click Extract — step by step
+
+You type text in the browser
+JavaScript sends a POST request to /analyze/
+Django's views.py receives it
+It calls get_temporal_entities(text) in nlp_engine.py
+DistilBERT runs first, tokenizes the text, returns entity spans
+Regex runs on the raw text, finds date/time patterns
+Gazetteer checks for keyword matches
+All results are merged, duplicates removed
+Returned as JSON back to the browser
+JavaScript renders the entity cards you see on screen

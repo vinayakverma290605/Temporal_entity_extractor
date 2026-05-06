@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temporal Entity Extractor</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f4f2ed;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 3rem 1rem;
+      color: #1a1a1a;
+    }
+
+    .container { width: 100%; max-width: 680px; }
+
+    .tee-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
+    .tee-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .tee-sub {
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .lang-pills { display: flex; gap: 6px; }
+
+    .lang-pill {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 11px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      color: #666;
+      background: #fff;
+    }
+
+    .input-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #888;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: #1a1a1a;
+      background: #fafafa;
+      resize: none;
+      outline: none;
+      transition: border-color 0.15s;
+      min-height: 110px;
+      line-height: 1.6;
+    }
+
+    textarea:focus { border-color: #aaa; background: #fff; }
+    textarea::placeholder { color: #bbb; }
+
+    .hint { font-size: 12px; color: #aaa; margin-top: 8px; }
+
+    .extract-btn {
+      width: 100%;
+      padding: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      color: #fff;
+      background: #1a1a1a;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 1rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .extract-btn:hover { background: #333; }
+    .extract-btn:active { transform: scale(0.99); }
+    .extract-btn.loading { opacity: 0.6; pointer-events: none; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 1.5rem 0;
+    }
+
+    .divider-line { flex: 1; height: 1px; background: #e5e5e5; }
+
+    .divider-label {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      color: #aaa;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .results-area { min-height: 100px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 0;
+      color: #bbb;
+      font-size: 14px;
+    }
+
+    .empty-state i { font-size: 32px; display: block; margin-bottom: 10px; color: #ccc; }
+
+    .count-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 1rem; }
+
+    .count-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+
+    .count-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-DATE     { background: #378ADD; }
+    .dot-TIME     { background: #639922; }
+    .dot-DURATION { background: #BA7517; }
+    .dot-PER      { background: #534AB7; }
+    .dot-LOC      { background: #0F6E56; }
+    .dot-ORG      { background: #993C1D; }
+    .dot-OTHER    { background: #888780; }
+
+    .entity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 8px;
+    }
+
+    .entity-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+
+    .entity-card:hover { border-color: #ccc; }
+
+    .entity-word { font-size: 15px; font-weight: 500; color: #1a1a1a; word-break: break-word; }
+
+    .entity-meta { display: flex; align-items: center; justify-content: space-between; }
+
+    .entity-type {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.07em;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    .type-DATE     { background: #E6F1FB; color: #0C447C; }
+    .type-TIME     { background: #EAF3DE; color: #27500A; }
+    .type-DURATION { background: #FAEEDA; color: #633806; }
+    .type-PER      { background: #EEEDFE; color: #3C3489; }
+    .type-LOC      { background: #E1F5EE; color: #085041; }
+    .type-ORG      { background: #FAECE7; color: #712B13; }
+    .type-OTHER    { background: #F1EFE8; color: #444441; }
+
+    .entity-score { font-size: 11px; color: #aaa; font-family: 'Space Mono', monospace; }
+
+    .error-msg {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid #f7c1c1;
+      background: #fcebeb;
+      color: #a32d2d;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer { text-align: center; margin-top: 2.5rem; font-size: 12px; color: #bbb; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="tee-header">
+    <div>
+      <p class="tee-title">Temporal Entity Extractor</p>
+      <p class="tee-sub">NLP · Semester 6 Project</p>
+    </div>
+    <div class="lang-pills">
+      <span class="lang-pill">EN</span>
+      <span class="lang-pill">हि</span>
+      <span class="lang-pill">বাং</span>
+    </div>
+  </div>
+
+  <div class="input-card">
+    <p class="input-label">Input text</p>
+    <textarea id="inputText" rows="4"
+      placeholder='Try: "Vinayak is free on 29 June. The meeting happened 3 days ago at 10 AM."'></textarea>
+    <p class="hint">Cmd / Ctrl + Enter to run</p>
+    <button class="extract-btn" id="extractBtn" onclick="runAnalysis()">
+      <i class="ti ti-sparkles"></i>
+      Extract entities
+    </button>
+  </div>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-label">Results</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <div class="results-area" id="resultDisplay">
+    <div class="empty-state">
+      <i class="ti ti-clock-search"></i>
+      Enter text above and click extract
+    </div>
+  </div>
+
+  <div class="footer">
+    Semester 6 · Multilingual Temporal NLP · Low-Resource Language Evaluation
+  </div>
+
+</div>
+
+<script>
+  async function runAnalysis() {
+    const text = document.getElementById('inputText').value.trim();
+    const display = document.getElementById('resultDisplay');
+    const btn = document.getElementById('extractBtn');
+
+    if (!text) {
+      display.innerHTML = '<div class="error-msg"><i class="ti ti-alert-circle"></i> Please enter some text first.</div>';
+      return;
+    }
+
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+    try {
+      const res = await fetch('/analyze/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'text=' + encodeURIComponent(text)
+      });
+      const data = await res.json();
+      renderResults(data.entities);
+    } catch (err) {
+      display.innerHTML = '<div class="error-msg"><i class="ti ti-wifi-off"></i> Server error. Make sure Django is running.</div>';
+    } finally {
+      btn.classList.remove('loading');
+      btn.innerHTML = '<i class="ti ti-sparkles"></i> Extract entities';
+    }
+  }
+
+  function renderResults(entities) {
+    const display = document.getElementById('resultDisplay');
+
+    if (!entities || entities.length === 0) {
+      display.innerHTML = '<div class="empty-state"><i class="ti ti-search-off"></i>No entities found in this text.</div>';
+      return;
+    }
+
+    const counts = {};
+    entities.forEach(e => { counts[e.type] = (counts[e.type] || 0) + 1; });
+
+    const dotMap = { DATE:'dot-DATE', TIME:'dot-TIME', DURATION:'dot-DURATION', PER:'dot-PER', LOC:'dot-LOC', ORG:'dot-ORG' };
+
+    let html = '<div class="count-bar">';
+    for (const [type, n] of Object.entries(counts)) {
+      const dot = dotMap[type] || 'dot-OTHER';
+      html += `<span class="count-item"><span class="count-dot ${dot}"></span>${n} ${type}</span>`;
+    }
+    html += '</div>';
+
+    html += '<div class="entity-grid">';
+    entities.forEach(e => {
+      const typeClass = 'type-' + (e.type || 'OTHER');
+      const score = e.score != null ? Math.round(e.score * 100) + '%' : '';
+      html += `
+        <div class="entity-card">
+          <span class="entity-word">${e.word}</span>
+          <div class="entity-meta">
+            <span class="entity-type ${typeClass}">${e.type}</span>
+            ${score ? `<span class="entity-score">${score}</span>` : ''}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    display.innerHTML = html;
+  }
+
+  document.getElementById('inputText').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runAnalysis();
+  });
+</script>
+
+</body>
+</html>
