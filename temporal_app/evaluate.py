@@ -1,7 +1,6 @@
 import os
 import sys
 
-# This lets evaluate.py find nlp_engine.py even when run from terminal
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from nlp_engine import get_temporal_entities
@@ -23,7 +22,25 @@ def normalize(text):
 
 def is_match(expected, detected_list):
     e = normalize(expected)
-    return any(e in normalize(d) or normalize(d) in e for d in detected_list)
+    for d in detected_list:
+        d_n = normalize(d)
+        if e == d_n:
+            return True
+        if e in d_n and len(e) > 3:
+            return True
+        if d_n in e and len(d_n) > 3:
+            return True
+    return False
+
+def deduplicate(detected_words):
+    """Remove shorter words already covered by a longer detected word."""
+    detected_words = sorted(detected_words, key=len, reverse=True)
+    cleaned = []
+    for word in detected_words:
+        word_lower = normalize(word)
+        if not any(word_lower in normalize(longer) for longer in cleaned):
+            cleaned.append(word)
+    return cleaned
 
 # ── Per language tracking ────────────────────────────────────
 languages = {
@@ -54,16 +71,24 @@ for i, (sentence, answers_raw) in enumerate(zip(sentences, answer_key)):
     expected_list = [a.strip() for a in answers_raw.split("|")]
     lang = detect_language(sentence)
 
-    # Run your system
+    # Run system and deduplicate
     raw_results = get_temporal_entities(sentence)
-    detected_words = [
+    raw_detected = [
         r["word"] for r in raw_results
         if r["entity_group"] in ["DATE", "TIME", "DURATION"]
     ]
+    detected_words = deduplicate(raw_detected)
 
-    # Match
-    correct_list = [e for e in expected_list if is_match(e, detected_words)]
-    missed_list  = [e for e in expected_list if not is_match(e, detected_words)]
+    # Match — each detected word can only match ONE expected word
+    used_detected = set()
+    correct_list = []
+    for e in expected_list:
+        for j, d in enumerate(detected_words):
+            if j not in used_detected and is_match(e, [d]):
+                correct_list.append(e)
+                used_detected.add(j)
+                break
+    missed_list = [e for e in expected_list if e not in correct_list]
 
     # Count
     total_expected += len(expected_list)
@@ -84,9 +109,9 @@ for i, (sentence, answers_raw) in enumerate(zip(sentences, answer_key)):
 
 # ── Overall metrics ──────────────────────────────────────────
 def metrics(correct, detected, expected):
-    p = correct / detected  if detected  > 0 else 0
-    r = correct / expected  if expected  > 0 else 0
-    f = (2*p*r)/(p+r)       if (p+r)    > 0 else 0
+    p = correct / detected if detected > 0 else 0
+    r = correct / expected if expected > 0 else 0
+    f = (2*p*r)/(p+r)      if (p+r)   > 0 else 0
     return p, r, f
 
 precision, recall, f1 = metrics(total_correct, total_detected, total_expected)
